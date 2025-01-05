@@ -8,15 +8,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+// Debug environment variables
+console.log('Checking environment variables:');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY length:', process.env.SUPABASE_ANON_KEY?.length);
+console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
+
+// Initialize Supabase with explicit error handling
+let supabase;
+try {
+  if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is not set');
+  if (!process.env.SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY is not set');
+  
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+} catch (error) {
+  console.error('Failed to initialize Supabase:', error);
+}
 
 // Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
+});
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'API is running' });
 });
 
 app.post('/api/search', async (req, res) => {
@@ -25,6 +44,10 @@ app.post('/api/search', async (req, res) => {
 
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
+    }
+
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
     }
 
     // Get SQL query from OpenAI
@@ -45,19 +68,19 @@ app.post('/api/search', async (req, res) => {
     });
 
     const sqlQuery = completion.choices[0].message.content;
+    console.log('Generated SQL query:', sqlQuery);
 
     // Query Supabase
     const { data, error } = await supabase
       .from('market_data')
-      .select('*')
-      .textSearch('pattern_description', query);
+      .select('*');
 
     if (error) throw error;
 
     res.json({ results: data });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
