@@ -8,25 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Debug environment variables
-console.log('Checking environment variables:');
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-console.log('SUPABASE_ANON_KEY length:', process.env.SUPABASE_ANON_KEY?.length);
-console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length);
-
-// Initialize Supabase with explicit error handling
-let supabase;
-try {
-  if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is not set');
-  if (!process.env.SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY is not set');
-  
-  supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
-} catch (error) {
-  console.error('Failed to initialize Supabase:', error);
-}
+// Initialize Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -46,41 +32,103 @@ app.post('/api/search', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    if (!supabase) {
-      throw new Error('Supabase client not initialized');
-    }
-
-    // Get SQL query from OpenAI
+    // First, use OpenAI to understand the query intent and structure
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{
         role: "system",
-        content: `You are a SQL query generator. Given a natural language query about market data, 
-                 generate a Supabase SQL query. The table is called market_data and has columns: 
-                 ticker, company_name, live_status, pattern_keywords, pattern_description, pattern_strength`
+        content: `You are a financial data query analyzer. The database contains market data with these fields:
+                 - ticker: Stock symbol
+                 - company_name: Company name
+                 - live_status: Whether the pattern is live (Yes/No)
+                 - pattern_keywords: Keywords describing the pattern
+                 - pattern_description: Detailed pattern description
+                 - pattern_strength: Numerical strength of the pattern (-1 to 1)
+                 
+                 Analyze the user's query and return a JSON object with:
+                 1. primary_focus: Main aspect they're interested in
+                 2. conditions: Array of conditions to check
+                 3. sort_by: How to sort results (if applicable)
+                 4. relevance_threshold: How strict to be with matching (0-1)`
       }, {
         role: "user",
-        content: `Convert this request into a SQL query: "${query}". 
-                 If it mentions "live", add a filter for live_status = 'Yes'.
-                 If it mentions specific keywords, search in pattern_keywords and pattern_description.
-                 Return only the SQL query, nothing else.`
+        content: `Analyze this market query: "${query}"`
       }]
     });
 
-    const sqlQuery = completion.choices[0].message.content;
-    console.log('Generated SQL query:', sqlQuery);
+    // Parse the analysis
+    const analysis = JSON.parse(completion.choices[0].message.content);
 
-    // Query Supabase
-    const { data, error } = await supabase
+    // Build the Supabase query based on the analysis
+    let dbQuery = supabase
       .from('market_data')
       .select('*');
 
+    // Apply conditions based on analysis
+    analysis.conditions?.forEach(condition => {
+      if (condition.field && condition.value) {
+        if (condition.field === 'pattern_strength') {
+          // Handle numerical comparisons
+          if (condition.operator === '>') {
+            dbQuery = dbQuery.gt('pattern_strength', condition.value);
+          } else if (condition.operator === '<') {
+            dbQuery = dbQuery.lt('pattern_strength', condition.value);
+          }
+        } else if (['pattern_keywords', 'pattern_description'].includes(condition.field)) {
+          // Full text search in patterns
+          dbQuery = dbQuery.textSearch(condition.field, condition.value);
+        } else {
+          // Regular field matching
+          dbQuery = dbQuery.ilike(condition.field, `%${condition.value}%`);
+        }
+      }
+    });
+
+    // Execute query
+    const { data, error } = await dbQuery;
+
     if (error) throw error;
 
-    res.json({ results: data });
+    // Post-process results based on analysis
+    let results = data;
+
+    // Apply sorting if specified
+    if (analysis.sort_by) {
+      results = results.sort((a, b) => {
+        if (analysis.sort_by === 'pattern_strength') {
+          return b.pattern_strength - a.pattern_strength;
+        }
+        return 0;
+      });
+    }
+
+    // Filter by relevance if specified
+    if (analysis.relevance_threshold) {
+      // Implement relevance scoring based on match quality
+      results = results.filter(item => {
+        // Simple relevance scoring example - can be made more sophisticated
+        let score = 0;
+        if (item.pattern_keywords?.toLowerCase().includes(analysis.primary_focus?.toLowerCase())) score += 0.5;
+        if (item.pattern_description?.toLowerCase().includes(analysis.primary_focus?.toLowerCase())) score += 0.5;
+        return score >= analysis.relevance_threshold;
+      });
+    }
+
+    res.json({
+      results,
+      analysis: {
+        understood_query: analysis,
+        result_count: results.length
+      }
+    });
+
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 
