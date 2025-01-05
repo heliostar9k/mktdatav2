@@ -32,92 +32,110 @@ app.post('/api/search', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // First, use OpenAI to understand the query intent and structure
+    // Get query understanding from OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{
         role: "system",
-        content: `You are a financial data query analyzer. The database contains market data with these fields:
-                 - ticker: Stock symbol
-                 - company_name: Company name
-                 - live_status: Whether the pattern is live (Yes/No)
-                 - pattern_keywords: Keywords describing the pattern
-                 - pattern_description: Detailed pattern description
-                 - pattern_strength: Numerical strength of the pattern (-1 to 1)
+        content: `You are a SQL query builder for a market data database with this structure:
+                 Table: market_data
+                 Columns:
+                 - ticker (text): Stock symbol
+                 - company_name (text): Company name
+                 - live_status (text): 'Yes' or 'No'
+                 - pattern_keywords (text): Keywords describing trading patterns
+                 - pattern_description (text): Detailed pattern description
+                 - pattern_strength (float): Value between -1 and 1
                  
-                 Analyze the user's query and return a JSON object with:
-                 1. primary_focus: Main aspect they're interested in
-                 2. conditions: Array of conditions to check
-                 3. sort_by: How to sort results (if applicable)
-                 4. relevance_threshold: How strict to be with matching (0-1)`
+                 Given a natural language query, return ONLY a JSON object with:
+                 {
+                   "sql_conditions": Array of SQL WHERE conditions,
+                   "live_status_check": Boolean (if query mentions live/current patterns),
+                   "pattern_strength_check": {
+                     "min": number or null,
+                     "max": number or null
+                   },
+                   "search_terms": Array of key terms to search in pattern_keywords and pattern_description
+                 }
+                 
+                 Example: For "show me live bullish nasdaq patterns"
+                 Return:
+                 {
+                   "sql_conditions": ["pattern_keywords ILIKE '%bullish%'", "pattern_keywords ILIKE '%nasdaq%'"],
+                   "live_status_check": true,
+                   "pattern_strength_check": {"min": 0, "max": null},
+                   "search_terms": ["bullish", "nasdaq"]
+                 }`
       }, {
         role: "user",
-        content: `Analyze this market query: "${query}"`
+        content: `Convert this market query to SQL conditions: "${query}"`
       }]
     });
 
-    // Parse the analysis
-    const analysis = JSON.parse(completion.choices[0].message.content);
+    // Parse the OpenAI response
+    const queryParams = JSON.parse(completion.choices[0].message.content);
+    console.log('Query parameters:', queryParams);
 
-    // Build the Supabase query based on the analysis
-    let dbQuery = supabase
-      .from('market_data')
-      .select('*');
+    // Build the Supabase query
+    let dbQuery = supabase.from('market_data').select('*');
 
-    // Apply conditions based on analysis
-    analysis.conditions?.forEach(condition => {
-      if (condition.field && condition.value) {
-        if (condition.field === 'pattern_strength') {
-          // Handle numerical comparisons
-          if (condition.operator === '>') {
-            dbQuery = dbQuery.gt('pattern_strength', condition.value);
-          } else if (condition.operator === '<') {
-            dbQuery = dbQuery.lt('pattern_strength', condition.value);
-          }
-        } else if (['pattern_keywords', 'pattern_description'].includes(condition.field)) {
-          // Full text search in patterns
-          dbQuery = dbQuery.textSearch(condition.field, condition.value);
-        } else {
-          // Regular field matching
-          dbQuery = dbQuery.ilike(condition.field, `%${condition.value}%`);
+    // Apply SQL conditions
+    if (queryParams.sql_conditions && queryParams.sql_conditions.length > 0) {
+      const orConditions = queryParams.sql_conditions.map(condition => {
+        // Extract the field name and search term from the SQL condition
+        const matches = condition.match(/(\w+)\s+ILIKE\s+'%(.+)%'/i);
+        if (matches) {
+          const [, field, term] = matches;
+          return `${field}.ilike.%${term}%`;
         }
+        return condition;
+      });
+      dbQuery = dbQuery.or(orConditions.join(','));
+    }
+
+    // Apply live status check
+    if (queryParams.live_status_check) {
+      dbQuery = dbQuery.eq('live_status', 'Yes');
+    }
+
+    // Apply pattern strength filters
+    if (queryParams.pattern_strength_check?.min !== null) {
+      dbQuery = dbQuery.gte('pattern_strength', queryParams.pattern_strength_check.min);
+    }
+    if (queryParams.pattern_strength_check?.max !== null) {
+      dbQuery = dbQuery.lte('pattern_strength', queryParams.pattern_strength_check.max);
+    }
+
+    // Apply text search for pattern keywords and descriptions
+    if (queryParams.search_terms && queryParams.search_terms.length > 0) {
+      const textSearchConditions = queryParams.search_terms.map(term => 
+        `pattern_keywords.ilike.%${term}%,pattern_description.ilike.%${term}%`
+      ).join(',');
+      if (!queryParams.sql_conditions || queryParams.sql_conditions.length === 0) {
+        dbQuery = dbQuery.or(textSearchConditions);
       }
-    });
+    }
 
     // Execute query
     const { data, error } = await dbQuery;
 
-    if (error) throw error;
-
-    // Post-process results based on analysis
-    let results = data;
-
-    // Apply sorting if specified
-    if (analysis.sort_by) {
-      results = results.sort((a, b) => {
-        if (analysis.sort_by === 'pattern_strength') {
-          return b.pattern_strength - a.pattern_strength;
-        }
-        return 0;
-      });
+    if (error) {
+      console.error('Database query error:', error);
+      throw error;
     }
 
-    // Filter by relevance if specified
-    if (analysis.relevance_threshold) {
-      // Implement relevance scoring based on match quality
-      results = results.filter(item => {
-        // Simple relevance scoring example - can be made more sophisticated
-        let score = 0;
-        if (item.pattern_keywords?.toLowerCase().includes(analysis.primary_focus?.toLowerCase())) score += 0.5;
-        if (item.pattern_description?.toLowerCase().includes(analysis.primary_focus?.toLowerCase())) score += 0.5;
-        return score >= analysis.relevance_threshold;
-      });
+    // Filter and sort results
+    let results = data || [];
+    
+    // Sort by pattern strength if appropriate
+    if (query.toLowerCase().includes('strong') || query.toLowerCase().includes('strength')) {
+      results = results.sort((a, b) => Math.abs(b.pattern_strength) - Math.abs(a.pattern_strength));
     }
 
     res.json({
       results,
-      analysis: {
-        understood_query: analysis,
+      query_analysis: {
+        parameters: queryParams,
         result_count: results.length
       }
     });
