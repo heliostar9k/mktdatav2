@@ -17,7 +17,7 @@ function formatResult(result) {
             </div>
             <div class="mb-3">
                 <p><strong>Pattern Strength:</strong> ${result.pattern_strength || 'N/A'}</p>
-                <p><strong>Keywords:</strong> ${result.pattern_keywords || 'N/A'}</p>
+                <p><strong>Factors:</strong> ${result.pattern_keywords || 'N/A'}</p>
                 <p><strong>Description:</strong> ${result.pattern_description || 'N/A'}</p>
             </div>
         </div>
