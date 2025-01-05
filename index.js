@@ -32,111 +32,155 @@ app.post('/api/search', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // Get query understanding from OpenAI
+    // Get query intent and search strategy from OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{
         role: "system",
-        content: `You are a SQL query builder for a market data database with this structure:
-                 Table: market_data
-                 Columns:
-                 - ticker (text): Stock symbol
-                 - company_name (text): Company name
-                 - live_status (text): 'Yes' or 'No'
-                 - pattern_keywords (text): Keywords describing trading patterns
-                 - pattern_description (text): Detailed pattern description
-                 - pattern_strength (float): Value between -1 and 1
+        content: `You are an advanced market intelligence system that understands various types of market-related queries.
+
+                 QUERY TYPES TO UNDERSTAND:
+                 1. Information Queries
+                    - General information about stocks, patterns, or market conditions
+                    - Historical context or background
+                    - Example: "Tell me about ACME Inc" or "What's happening with energy stocks"
                  
-                 Given a natural language query, return ONLY a JSON object with:
-                 {
-                   "sql_conditions": Array of SQL WHERE conditions,
-                   "live_status_check": Boolean (if query mentions live/current patterns),
-                   "pattern_strength_check": {
-                     "min": number or null,
-                     "max": number or null
-                   },
-                   "search_terms": Array of key terms to search in pattern_keywords and pattern_description
-                 }
+                 2. Pattern Analysis
+                    - Technical patterns in market behavior
+                    - Trend identification
+                    - Example: "Show patterns in tech when Fed was raising" or "What patterns are formed in Oil and XLY during a war"
                  
-                 Example: For "show me live bullish nasdaq patterns"
-                 Return:
-                 {
-                   "sql_conditions": ["pattern_keywords ILIKE '%bullish%'", "pattern_keywords ILIKE '%nasdaq%'"],
-                   "live_status_check": true,
-                   "pattern_strength_check": {"min": 0, "max": null},
-                   "search_terms": ["bullish", "nasdaq"]
-                 }`
+                 3. Trading Signals
+                    - Actionable trading opportunities
+                    - Current/Live patterns requiring immediate attention
+                    - Example: "Any trading signals in SPY right now" or "Generate a trade for me with a 2% target gain"
+                 
+                 4. Market Insights
+                    - Deeper analysis of market conditions
+                    - Pattern strength and reliability
+                    - Example: "What's the market showing for QQQ" or "Strong patterns today"
+
+                 DATABASE FIELDS:
+                 - ticker: Stock symbol
+                 - company_name: Company name
+                 - live_status: Current validity ('Yes'/'No')
+                 - pattern_keywords: Pattern identification terms
+                 - pattern_description: Detailed pattern explanation
+                 - pattern_strength: Confidence metric (-1 to 1)
+
+                 QUERY UNDERSTANDING REQUIREMENTS:
+                 1. Identify primary intent (information/pattern/signal/insight)
+                 2. Determine if live/current data is crucial
+                 3. Extract relevant search terms
+                 4. Understand strength/confidence requirements
+                 5. Recognize time sensitivity
+                 6. Identify specific instruments or sectors`
       }, {
         role: "user",
-        content: `Convert this market query to SQL conditions: "${query}"`
+        content: `Analyze this market query: "${query}"
+                 Return a JSON search strategy with:
+                 {
+                   "query_intent": {
+                     "primary_type": "information|pattern|signal|insight",
+                     "time_sensitive": boolean,
+                     "requires_live": boolean
+                   },
+                   "search_parameters": {
+                     "text_terms": ["term1", "term2", ...],
+                     "fields_to_check": ["field1", "field2", ...],
+                     "strength_requirements": {
+                       "min": number or null,
+                       "max": number or null,
+                       "important": boolean
+                     }
+                   },
+                   "result_preferences": {
+                     "sort_field": string or null,
+                     "sort_direction": "asc|desc",
+                     "prioritize_live": boolean,
+                     "prioritize_strength": boolean
+                   }
+                 }`
       }]
     });
 
-    // Parse the OpenAI response
-    const queryParams = JSON.parse(completion.choices[0].message.content);
-    console.log('Query parameters:', queryParams);
+    const searchStrategy = JSON.parse(completion.choices[0].message.content);
+    console.log('Search strategy:', searchStrategy);
 
-    // Build the Supabase query
+    // Build base query
     let dbQuery = supabase.from('market_data').select('*');
 
-    // Apply SQL conditions
-    if (queryParams.sql_conditions && queryParams.sql_conditions.length > 0) {
-      const orConditions = queryParams.sql_conditions.map(condition => {
-        // Extract the field name and search term from the SQL condition
-        const matches = condition.match(/(\w+)\s+ILIKE\s+'%(.+)%'/i);
-        if (matches) {
-          const [, field, term] = matches;
-          return `${field}.ilike.%${term}%`;
-        }
-        return condition;
-      });
-      dbQuery = dbQuery.or(orConditions.join(','));
+    // Apply text search across specified fields
+    if (searchStrategy.search_parameters.text_terms.length > 0) {
+      const searchConditions = searchStrategy.search_parameters.fields_to_check.flatMap(field => 
+        searchStrategy.search_parameters.text_terms.map(term => 
+          `${field}.ilike.%${term}%`
+        )
+      ).join(',');
+      
+      dbQuery = dbQuery.or(searchConditions);
     }
 
-    // Apply live status check
-    if (queryParams.live_status_check) {
+    // Handle live status requirements
+    if (searchStrategy.query_intent.requires_live) {
       dbQuery = dbQuery.eq('live_status', 'Yes');
     }
 
-    // Apply pattern strength filters
-    if (queryParams.pattern_strength_check?.min !== null) {
-      dbQuery = dbQuery.gte('pattern_strength', queryParams.pattern_strength_check.min);
+    // Apply strength filters if specified
+    const strengthReq = searchStrategy.search_parameters.strength_requirements;
+    if (strengthReq.min !== null) {
+      dbQuery = dbQuery.gte('pattern_strength', strengthReq.min);
     }
-    if (queryParams.pattern_strength_check?.max !== null) {
-      dbQuery = dbQuery.lte('pattern_strength', queryParams.pattern_strength_check.max);
-    }
-
-    // Apply text search for pattern keywords and descriptions
-    if (queryParams.search_terms && queryParams.search_terms.length > 0) {
-      const textSearchConditions = queryParams.search_terms.map(term => 
-        `pattern_keywords.ilike.%${term}%,pattern_description.ilike.%${term}%`
-      ).join(',');
-      if (!queryParams.sql_conditions || queryParams.sql_conditions.length === 0) {
-        dbQuery = dbQuery.or(textSearchConditions);
-      }
+    if (strengthReq.max !== null) {
+      dbQuery = dbQuery.lte('pattern_strength', strengthReq.max);
     }
 
     // Execute query
-    const { data, error } = await dbQuery;
+    let { data: results, error } = await dbQuery;
 
     if (error) {
-      console.error('Database query error:', error);
+      console.error('Query error:', error);
       throw error;
     }
 
-    // Filter and sort results
-    let results = data || [];
-    
-    // Sort by pattern strength if appropriate
-    if (query.toLowerCase().includes('strong') || query.toLowerCase().includes('strength')) {
-      results = results.sort((a, b) => Math.abs(b.pattern_strength) - Math.abs(a.pattern_strength));
+    // Post-process results
+    if (results && results.length > 0) {
+      // Handle sorting preferences
+      if (searchStrategy.result_preferences.sort_field) {
+        const direction = searchStrategy.result_preferences.sort_direction === 'desc' ? -1 : 1;
+        results = results.sort((a, b) => {
+          const aVal = a[searchStrategy.result_preferences.sort_field];
+          const bVal = b[searchStrategy.result_preferences.sort_field];
+          return (aVal > bVal ? 1 : -1) * direction;
+        });
+      }
+
+      // Prioritize by strength if requested
+      if (searchStrategy.result_preferences.prioritize_strength) {
+        results = results.sort((a, b) => Math.abs(b.pattern_strength) - Math.abs(a.pattern_strength));
+      }
+
+      // Prioritize live patterns if requested
+      if (searchStrategy.result_preferences.prioritize_live) {
+        results = results.sort((a, b) => {
+          if (a.live_status === 'Yes' && b.live_status !== 'Yes') return -1;
+          if (a.live_status !== 'Yes' && b.live_status === 'Yes') return 1;
+          return 0;
+        });
+      }
     }
 
+    // Return results with complete analysis
     res.json({
-      results,
-      query_analysis: {
-        parameters: queryParams,
-        result_count: results.length
+      results: results || [],
+      analysis: {
+        understanding: {
+          query_type: searchStrategy.query_intent.primary_type,
+          time_sensitive: searchStrategy.query_intent.time_sensitive,
+          requires_live_data: searchStrategy.query_intent.requires_live
+        },
+        search_strategy: searchStrategy,
+        result_count: results ? results.length : 0
       }
     });
 
