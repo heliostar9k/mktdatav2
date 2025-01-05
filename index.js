@@ -1,12 +1,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
 // Initialize Supabase
 const supabase = createClient(
@@ -19,9 +21,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Health check endpoint
+// Serve the HTML page at root
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'API is running' });
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'API is running' });
 });
 
 app.post('/api/search', async (req, res) => {
@@ -53,12 +60,12 @@ app.post('/api/search', async (req, res) => {
                  3. Trading Signals
                     - Actionable trading opportunities
                     - Current/Live patterns requiring immediate attention
-                    - Example: "Any trading signals in SPY right now" or "Generate a trade for me with a 2% target gain"
+                    - Example: "Any trading signals in S&P500 right now" or "Generate a trade for me with a 2% target gain"
                  
                  4. Market Insights
                     - Deeper analysis of market conditions
                     - Pattern strength and reliability
-                    - Example: "What's the market showing for QQQ" or "Strong patterns today"
+                    - Example: "What's the market showing for QQQ" or "Strong patterns in the market today"
 
                  DATABASE FIELDS:
                  - ticker: Stock symbol
