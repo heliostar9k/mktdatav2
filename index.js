@@ -1,14 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');  // Add path module
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Add static file serving
+app.use(express.static('public'));
 
 // Initialize Supabase
 const supabase = createClient(
@@ -182,7 +183,41 @@ app.post('/api/search', async (req, res) => {
       }
     }
 
-    // Return results with complete analysis
+    // Get additional insights from Perplexity if needed
+    let additionalInsights = null;
+    if (
+      (results.length === 0 || 
+       searchStrategy.query_intent.primary_type === 'information' ||
+       searchStrategy.query_intent.primary_type === 'insight') &&
+      searchStrategy.query_intent.primary_type !== 'signal'
+    ) {
+      try {
+        const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
+          model: "pplx-7b-chat",
+          messages: [{
+            role: "system",
+            content: "You are a financial market analysis expert. Provide insights about market patterns, stocks, and trading conditions. Be concise and specific."
+          }, {
+            role: "user",
+            content: `Analyze this market query: ${query}\nContext: ${results.length > 0 ? 
+              `Based on existing patterns: ${results.map(r => r.pattern_description).join('. ')}` : 
+              'No existing patterns found in database'}`
+          }],
+          max_tokens: 150
+        }, {
+          headers: {
+            'Authorization': `Bearer ${process.env.PPLX_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        additionalInsights = perplexityResponse.data.choices[0].message.content;
+      } catch (error) {
+        console.error('Perplexity API error:', error);
+      }
+    }
+
+    // Return results with complete analysis and additional insights
     res.json({
       results: results || [],
       analysis: {
@@ -193,7 +228,8 @@ app.post('/api/search', async (req, res) => {
         },
         search_strategy: searchStrategy,
         result_count: results ? results.length : 0
-      }
+      },
+      additional_insights: additionalInsights
     });
 
   } catch (error) {
