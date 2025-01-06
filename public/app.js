@@ -2,35 +2,31 @@
 function formatResult(result) {
     if (!result) return '';
     
-    const strengthClass = 
-        Math.abs(result.pattern_strength) > 0.7 ? 'high' :
-        Math.abs(result.pattern_strength) > 0.4 ? 'medium' : 'low';
-    
     return `
-        <div class="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-            <div class="flex justify-between items-start">
+        <div class="mb-4 p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start mb-3">
                 <div>
-                    <div class="font-bold text-lg">${result.ticker}</div>
+                    <div class="text-xl font-bold text-gray-900">${result.ticker}</div>
                     <div class="text-sm text-gray-600">${result.company_name}</div>
                 </div>
                 <div class="flex gap-2">
                     ${result.live_status === 'Yes' 
-                        ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Live</span>' 
+                        ? '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Live</span>' 
                         : ''}
-                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                        Strength: ${(result.pattern_strength * 100).toFixed(1)}%
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                        Strength: ${result.pattern_strength}
                     </span>
                 </div>
             </div>
             
-            <div class="mt-4 space-y-2">
+            <div class="space-y-3">
                 <div class="text-sm">
-                    <span class="font-semibold">Pattern Keywords:</span> 
-                    <span class="text-gray-700">${result.pattern_keywords || 'N/A'}</span>
+                    <div class="font-medium mb-1">Pattern Keywords:</div>
+                    <div class="text-gray-700">${result.pattern_keywords || 'N/A'}</div>
                 </div>
                 <div class="text-sm">
-                    <span class="font-semibold">Description:</span> 
-                    <span class="text-gray-700">${result.pattern_description || 'N/A'}</span>
+                    <div class="font-medium mb-1">Description:</div>
+                    <div class="text-gray-700 whitespace-pre-wrap">${result.pattern_description || 'N/A'}</div>
                 </div>
             </div>
         </div>
@@ -43,12 +39,11 @@ async function sendQuery() {
     const queryAnalysis = document.getElementById('queryAnalysis');
     
     if (!queryInput.value.trim()) {
-        results.innerHTML = '<div class="p-4 text-red-500 bg-red-50 rounded-lg">Please enter a query</div>';
+        results.innerHTML = '<div class="p-4 text-red-600 bg-red-50 rounded-lg">Please enter a query</div>';
         return;
     }
     
     try {
-        // Show loading states
         results.innerHTML = '<div class="p-4 text-blue-600 animate-pulse">Searching patterns...</div>';
         queryAnalysis.innerHTML = '<div class="p-4 text-blue-600 animate-pulse">Analyzing query...</div>';
         
@@ -69,18 +64,18 @@ async function sendQuery() {
         // Display Analysis
         if (data.analysis) {
             queryAnalysis.innerHTML = `
-                <div class="p-4 space-y-2">
+                <div class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="p-3 bg-gray-50 rounded-lg">
-                            <div class="font-semibold">Query Type</div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="font-medium mb-1">Query Type</div>
                             <div class="text-gray-700">${data.analysis.understanding.query_type}</div>
                         </div>
-                        <div class="p-3 bg-gray-50 rounded-lg">
-                            <div class="font-semibold">Time Sensitive</div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="font-medium mb-1">Time Sensitive</div>
                             <div class="text-gray-700">${data.analysis.understanding.time_sensitive ? 'Yes' : 'No'}</div>
                         </div>
-                        <div class="p-3 bg-gray-50 rounded-lg">
-                            <div class="font-semibold">Requires Live Data</div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="font-medium mb-1">Requires Live Data</div>
                             <div class="text-gray-700">${data.analysis.understanding.requires_live_data ? 'Yes' : 'No'}</div>
                         </div>
                     </div>
@@ -94,21 +89,17 @@ async function sendQuery() {
         let resultsHtml = '';
         
         if (data.results && data.results.length > 0) {
-            resultsHtml = `
-                <div class="space-y-4">
-                    ${data.results.map(formatResult).join('')}
-                </div>
-            `;
+            resultsHtml = data.results.map(formatResult).join('');
         } else {
-            resultsHtml = '<div class="p-4 text-yellow-600 bg-yellow-50 rounded-lg">No pattern matches found in database</div>';
+            resultsHtml = '<div class="p-4 text-yellow-600 bg-yellow-50 rounded-lg mb-4">No pattern matches found in database</div>';
         }
 
         // Add Perplexity insights if available
         if (data.additional_insights) {
             resultsHtml += `
-                <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <div class="font-semibold text-blue-800 mb-2">Additional Market Insights</div>
-                    <div class="text-gray-700">${data.additional_insights}</div>
+                <div class="p-6 bg-blue-50 rounded-lg">
+                    <div class="font-bold text-blue-900 mb-2">Additional Market Insights</div>
+                    <div class="text-gray-800 whitespace-pre-wrap">${data.additional_insights}</div>
                 </div>
             `;
         }
@@ -117,11 +108,7 @@ async function sendQuery() {
         
     } catch (error) {
         console.error('Error:', error);
-        results.innerHTML = `
-            <div class="p-4 text-red-600 bg-red-50 rounded-lg">
-                Error: ${error.message}
-            </div>
-        `;
+        results.innerHTML = `<div class="p-4 text-red-600 bg-red-50 rounded-lg">Error: ${error.message}</div>`;
         queryAnalysis.innerHTML = '<div class="p-4 text-red-600 bg-red-50 rounded-lg">Analysis failed</div>';
     }
 }
@@ -131,7 +118,7 @@ function setQuery(query) {
     sendQuery();
 }
 
-// Handle Enter key press
+// Handle Enter key
 document.addEventListener('DOMContentLoaded', () => {
     const queryInput = document.getElementById('queryInput');
     if (queryInput) {
