@@ -1,24 +1,37 @@
-// Helper function to safely format a result
+// Helper functions for UI
 function formatResult(result) {
     if (!result) return '';
     
+    const strengthClass = 
+        Math.abs(result.pattern_strength) > 0.7 ? 'high' :
+        Math.abs(result.pattern_strength) > 0.4 ? 'medium' : 'low';
+    
     return `
-        <div class="result-card">
-            <div class="flex justify-between items-start mb-3">
+        <div class="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start">
                 <div>
-                    <h3 class="text-lg font-bold">${result.ticker || 'N/A'}</h3>
-                    <p class="text-sm text-gray-600">${result.company_name || 'N/A'}</p>
+                    <div class="font-bold text-lg">${result.ticker}</div>
+                    <div class="text-sm text-gray-600">${result.company_name}</div>
                 </div>
-                <div>
-                    <span class="badge ${result.live_status === 'Yes' ? 'badge-live' : 'badge-inactive'}">
-                        ${result.live_status || 'N/A'}
+                <div class="flex gap-2">
+                    ${result.live_status === 'Yes' 
+                        ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Live</span>' 
+                        : ''}
+                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                        Strength: ${(result.pattern_strength * 100).toFixed(1)}%
                     </span>
                 </div>
             </div>
-            <div class="mb-3">
-                <p><strong>Pattern Strength:</strong> ${result.pattern_strength || 'N/A'}</p>
-                <p><strong>Factors:</strong> ${result.pattern_keywords || 'N/A'}</p>
-                <p><strong>Description:</strong> ${result.pattern_description || 'N/A'}</p>
+            
+            <div class="mt-4 space-y-2">
+                <div class="text-sm">
+                    <span class="font-semibold">Pattern Keywords:</span> 
+                    <span class="text-gray-700">${result.pattern_keywords || 'N/A'}</span>
+                </div>
+                <div class="text-sm">
+                    <span class="font-semibold">Description:</span> 
+                    <span class="text-gray-700">${result.pattern_description || 'N/A'}</span>
+                </div>
             </div>
         </div>
     `;
@@ -30,13 +43,14 @@ async function sendQuery() {
     const queryAnalysis = document.getElementById('queryAnalysis');
     
     if (!queryInput.value.trim()) {
-        results.innerHTML = '<div class="text-red-500">Please enter a query</div>';
+        results.innerHTML = '<div class="p-4 text-red-500 bg-red-50 rounded-lg">Please enter a query</div>';
         return;
     }
     
     try {
-        results.innerHTML = '<div class="loading">Processing query...</div>';
-        queryAnalysis.innerHTML = '<div class="loading">Analyzing...</div>';
+        // Show loading states
+        results.innerHTML = '<div class="p-4 text-blue-600 animate-pulse">Searching patterns...</div>';
+        queryAnalysis.innerHTML = '<div class="p-4 text-blue-600 animate-pulse">Analyzing query...</div>';
         
         const response = await fetch('/api/search', {
             method: 'POST',
@@ -46,36 +60,69 @@ async function sendQuery() {
             body: JSON.stringify({ query: queryInput.value })
         });
         
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Display analysis
+        const data = await response.json();
+        
+        // Display Analysis
         if (data.analysis) {
             queryAnalysis.innerHTML = `
-                <div>
-                    <h4 class="font-semibold">Query Type: ${data.analysis.understanding.query_type || 'N/A'}</h4>
-                    <p>Time Sensitive: ${data.analysis.understanding.time_sensitive}</p>
-                    <p>Requires Live Data: ${data.analysis.understanding.requires_live_data}</p>
+                <div class="p-4 space-y-2">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <div class="font-semibold">Query Type</div>
+                            <div class="text-gray-700">${data.analysis.understanding.query_type}</div>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <div class="font-semibold">Time Sensitive</div>
+                            <div class="text-gray-700">${data.analysis.understanding.time_sensitive ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <div class="font-semibold">Requires Live Data</div>
+                            <div class="text-gray-700">${data.analysis.understanding.requires_live_data ? 'Yes' : 'No'}</div>
+                        </div>
+                    </div>
                 </div>
             `;
         } else {
-            queryAnalysis.innerHTML = '<div class="text-yellow-500">No analysis available</div>';
+            queryAnalysis.innerHTML = '<div class="p-4 text-yellow-600 bg-yellow-50 rounded-lg">No analysis available</div>';
         }
         
-        // Display results
+        // Display Results
+        let resultsHtml = '';
+        
         if (data.results && data.results.length > 0) {
-            results.innerHTML = data.results.map(formatResult).join('');
+            resultsHtml = `
+                <div class="space-y-4">
+                    ${data.results.map(formatResult).join('')}
+                </div>
+            `;
         } else {
-            results.innerHTML = '<div class="text-yellow-500">No results found</div>';
+            resultsHtml = '<div class="p-4 text-yellow-600 bg-yellow-50 rounded-lg">No pattern matches found in database</div>';
         }
+
+        // Add Perplexity insights if available
+        if (data.additional_insights) {
+            resultsHtml += `
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <div class="font-semibold text-blue-800 mb-2">Additional Market Insights</div>
+                    <div class="text-gray-700">${data.additional_insights}</div>
+                </div>
+            `;
+        }
+        
+        results.innerHTML = resultsHtml;
         
     } catch (error) {
         console.error('Error:', error);
-        results.innerHTML = `<div class="text-red-500">Error: ${error.message}</div>`;
-        queryAnalysis.innerHTML = '<div class="text-red-500">Analysis failed</div>';
+        results.innerHTML = `
+            <div class="p-4 text-red-600 bg-red-50 rounded-lg">
+                Error: ${error.message}
+            </div>
+        `;
+        queryAnalysis.innerHTML = '<div class="p-4 text-red-600 bg-red-50 rounded-lg">Analysis failed</div>';
     }
 }
 
@@ -84,9 +131,14 @@ function setQuery(query) {
     sendQuery();
 }
 
-// Handle Enter key
-document.getElementById('queryInput')?.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        sendQuery();
+// Handle Enter key press
+document.addEventListener('DOMContentLoaded', () => {
+    const queryInput = document.getElementById('queryInput');
+    if (queryInput) {
+        queryInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendQuery();
+            }
+        });
     }
 });
