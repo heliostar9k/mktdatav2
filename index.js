@@ -123,12 +123,11 @@ app.post('/api/search', async (req, res) => {
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
 
-    // Apply text search across specified fields
+    // Apply text search across all relevant fields for broader matching
     if (searchStrategy.search_parameters.text_terms.length > 0) {
-      const textFields = searchStrategy.search_parameters.fields_to_check
-        .filter(field => field !== 'pattern_strength');
+      const searchFields = ['ticker', 'company_name', 'pattern_keywords', 'pattern_description'];
       
-      const searchConditions = textFields.flatMap(field => 
+      const searchConditions = searchFields.flatMap(field => 
         searchStrategy.search_parameters.text_terms.map(term => 
           `${field}.ilike.%${term}%`
         )
@@ -203,7 +202,7 @@ app.post('/api/search', async (req, res) => {
           model: "llama-3.1-sonar-small-128k-online",
           messages: [{
             role: "system",
-            content: "Be precise and concise."
+            content: "You are a financial market analysis expert. Provide comprehensive insights about market patterns, stocks, and trading conditions. Be specific and thorough in your analysis."
           }, {
             role: "user",
             content: `Analyze this market query: ${query}\nContext: ${results.length > 0 ? 
@@ -212,7 +211,7 @@ app.post('/api/search', async (req, res) => {
           }],
           temperature: 0.2,
           top_p: 0.9,
-          max_tokens: 150,
+          max_tokens: 500,  // Increased for more detailed responses
           search_domain_filter: ["perplexity.ai"],
           return_images: false,
           return_related_questions: false,
