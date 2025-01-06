@@ -125,27 +125,34 @@ app.post('/api/search', async (req, res) => {
 
     // Apply text search across specified fields
     if (searchStrategy.search_parameters.text_terms.length > 0) {
-      const searchConditions = searchStrategy.search_parameters.fields_to_check.flatMap(field => 
+      const textFields = searchStrategy.search_parameters.fields_to_check
+        .filter(field => field !== 'pattern_strength');
+      
+      const searchConditions = textFields.flatMap(field => 
         searchStrategy.search_parameters.text_terms.map(term => 
           `${field}.ilike.%${term}%`
         )
-      ).join(',');
+      );
       
-      dbQuery = dbQuery.or(searchConditions);
+      if (searchConditions.length > 0) {
+        dbQuery = dbQuery.or(searchConditions.join(','));
+      }
+
+      // Handle pattern_strength separately
+      if (searchStrategy.search_parameters.strength_requirements.important) {
+        const { min, max } = searchStrategy.search_parameters.strength_requirements;
+        if (min !== null) {
+          dbQuery = dbQuery.gte('pattern_strength', min);
+        }
+        if (max !== null) {
+          dbQuery = dbQuery.lte('pattern_strength', max);
+        }
+      }
     }
 
     // Handle live status requirements
     if (searchStrategy.query_intent.requires_live) {
       dbQuery = dbQuery.eq('live_status', 'Yes');
-    }
-
-    // Apply strength filters if specified
-    const strengthReq = searchStrategy.search_parameters.strength_requirements;
-    if (strengthReq.min !== null) {
-      dbQuery = dbQuery.gte('pattern_strength', strengthReq.min);
-    }
-    if (strengthReq.max !== null) {
-      dbQuery = dbQuery.lte('pattern_strength', strengthReq.max);
     }
 
     // Execute query
@@ -217,7 +224,7 @@ app.post('/api/search', async (req, res) => {
       }
     }
 
-    // Return results with complete analysis and additional insights
+    // Return results with complete analysis and insights
     res.json({
       results: results || [],
       analysis: {
