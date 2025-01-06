@@ -199,35 +199,35 @@ app.post('/api/search', async (req, res) => {
       searchStrategy.query_intent.primary_type !== 'signal'
     ) {
       try {
-  const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
-    model: "llama-3.1-sonar-small-128k-online",  // Updated model
-    messages: [{
-      role: "system",
-      content: "Be precise and concise."
-    }, {
-      role: "user",
-      content: `Analyze this market query: ${query}\nContext: ${results.length > 0 ? 
-        `Based on existing patterns: ${results.map(r => r.pattern_description).join('. ')}` : 
-        'No existing patterns found in database'}`
-    }],
-    temperature: 0.2,
-    top_p: 0.9,
-    max_tokens: 150,
-    search_domain_filter: ["perplexity.ai"],
-    return_images: false,
-    return_related_questions: false,
-    search_recency_filter: "month"
-  }, {
-    headers: {
-      'Authorization': `Bearer ${process.env.PPLX_API_KEY}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  
-  additionalInsights = perplexityResponse.data.choices[0].message.content;
-} catch (error) {
-  console.error('Perplexity API error:', error);
-}
+        const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [{
+            role: "system",
+            content: "Be precise and concise."
+          }, {
+            role: "user",
+            content: `Analyze this market query: ${query}\nContext: ${results.length > 0 ? 
+              `Based on existing patterns: ${results.map(r => r.pattern_description).join('. ')}` : 
+              'No existing patterns found in database'}`
+          }],
+          temperature: 0.2,
+          top_p: 0.9,
+          max_tokens: 150,
+          search_domain_filter: ["perplexity.ai"],
+          return_images: false,
+          return_related_questions: false,
+          search_recency_filter: "month"
+        }, {
+          headers: {
+            'Authorization': `Bearer ${process.env.PPLX_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        additionalInsights = perplexityResponse.data.choices[0].message.content;
+      } catch (error) {
+        console.error('Perplexity API error:', error);
+      }
     }
 
     // Return results with complete analysis and insights
