@@ -31,6 +31,11 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'API is running' });
 });
 
+// Add docs route
+app.get('/docs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
+});
+
 app.post('/api/search', async (req, res) => {
   try {
     const { query } = req.body;
