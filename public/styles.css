@@ -1,65 +1,121 @@
 /* Base styles */
 body {
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: #f9fafb;
 }
 
 /* Card styles */
 .result-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    background-color: #ffffff;
+    @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-6 mb-4;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Input styles */
+input[type="text"] {
+    @apply w-full p-3 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    transition: all 0.2s ease;
+}
+
+input[type="text"]:focus {
+    @apply outline-none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Button styles */
+button {
+    @apply transition-all duration-200;
+}
+
+button:hover {
+    @apply transform -translate-y-0.5;
+}
+
+.btn-primary {
+    @apply bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700;
 }
 
 /* Badge styles */
 .badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
 }
 
 .badge-live {
-    background-color: #10B981;
-    color: white;
+    @apply bg-green-100 text-green-800;
 }
 
 .badge-inactive {
-    background-color: #6B7280;
-    color: white;
+    @apply bg-gray-100 text-gray-800;
+}
+
+.badge-strength {
+    @apply bg-blue-100 text-blue-800;
 }
 
 /* Loading animation */
-.loading {
-    color: #6B7280;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.loading:before {
-    content: "";
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid #E5E7EB;
-    border-top-color: #3B82F6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: .5;
     }
 }
 
-/* Example query buttons */
-button {
-    transition: all 0.2s;
+/* Query analysis section */
+.analysis-card {
+    @apply bg-gray-50 rounded-lg p-4;
 }
 
-button:hover {
-    transform: translateY(-1px);
+.analysis-title {
+    @apply font-semibold text-gray-700 mb-2;
+}
+
+.analysis-content {
+    @apply text-gray-600;
+}
+
+/* Additional insights section */
+.insights-section {
+    @apply mt-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100;
+}
+
+.insights-header {
+    @apply text-lg font-semibold text-blue-900 mb-3;
+}
+
+.insights-content {
+    @apply text-gray-800 text-sm leading-relaxed whitespace-pre-wrap;
+}
+
+/* Example query buttons */
+.example-btn {
+    @apply px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-all;
+}
+
+/* Error and warning states */
+.error-message {
+    @apply p-4 bg-red-50 text-red-600 rounded-lg;
+}
+
+.warning-message {
+    @apply p-4 bg-yellow-50 text-yellow-600 rounded-lg;
+}
+
+/* Container layout */
+.container {
+    @apply max-w-4xl mx-auto p-6;
+}
+
+/* Grid layout for analysis and results */
+.grid-layout {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+}
+
+/* Search box container */
+.search-container {
+    @apply bg-white rounded-xl shadow-lg p-6 mb-6;
 }
