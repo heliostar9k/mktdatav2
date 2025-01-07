@@ -51,8 +51,30 @@ app.post('/api/search', async (req, res) => {
       max_tokens: 1000,
       messages: [{
         role: "user",
-        content: `You are an advanced market intelligence system that understands various types of market-related queries.
-
+        content: `You are going to analyze this market query: "${query}"
+Return ONLY a JSON object with no other text or explanation. The JSON must follow this exact structure:
+{
+  "query_intent": {
+    "primary_type": "information|pattern|signal|insight",
+    "time_sensitive": boolean,
+    "requires_live": boolean
+  },
+  "search_parameters": {
+    "text_terms": ["term1", "term2"],
+    "fields_to_check": ["field1", "field2"],
+    "strength_requirements": {
+      "min": number or null,
+      "max": number or null,
+      "important": boolean
+    }
+  },
+  "result_preferences": {
+    "sort_field": string or null,
+    "sort_direction": "asc|desc",
+    "prioritize_live": boolean,
+    "prioritize_strength": boolean
+  }
+}
                  QUERY TYPES TO UNDERSTAND:
                  1. Information Queries
                     - General information about stocks, patterns, or market conditions
