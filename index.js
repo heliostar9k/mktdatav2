@@ -118,36 +118,34 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    // Parse Claude's response
-    console.log('Claude raw response:', completion.content);
+    // Replace the current parsing section with this simpler version:
     let searchStrategy;
     try {
-        // Clean up the response: remove \n, concatenation symbols, and extra whitespace
-        const cleanedResponse = completion.content
-            .replace(/\n/g, '')         // Remove newlines
-            .replace(/\s+/g, ' ')       // Normalize whitespace
-            .replace(/'\s*\+\s*'/g, '') // Remove string concatenation
-            .replace(/\\n/g, '')        // Remove escaped newlines
-            .trim();                    // Remove leading/trailing whitespace
-
-        // Find the JSON object
-        const jsonStart = cleanedResponse.indexOf('{');
-        const jsonEnd = cleanedResponse.lastIndexOf('}') + 1;
-        if (jsonStart === -1 || jsonEnd === 0) {
-            throw new Error('No JSON object found in response');
-        }
-
-        const jsonStr = cleanedResponse.slice(jsonStart, jsonEnd);
-        console.log('Cleaned JSON string:', jsonStr);
+        console.log('Claude raw response:', completion.content);
         
-        searchStrategy = JSON.parse(jsonStr);
-        console.log('Successfully parsed strategy:', searchStrategy);
-
+        if (typeof completion.content === 'object') {
+            // If Claude returns a parsed object
+            searchStrategy = completion.content;
+        } else {
+            // If Claude returns a string containing a JSON object
+            const text = completion.content;
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            
+            if (firstBrace === -1 || lastBrace === -1) {
+                throw new Error('No JSON object found in response');
+            }
+            
+            // Extract just the JSON part
+            const jsonText = text.substring(firstBrace, lastBrace + 1);
+            searchStrategy = JSON.parse(jsonText);
+        }
+        
+        console.log('Parsed search strategy:', searchStrategy);
     } catch (error) {
-        console.error('Parse error:', error);
+        console.error('Parse error:', error, '\nResponse:', completion.content);
         throw new Error('Failed to parse Claude response: ' + error.message);
     }
-
     console.log('Building Supabase query');
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
