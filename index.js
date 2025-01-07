@@ -52,7 +52,6 @@ app.post('/api/search', async (req, res) => {
       messages: [{
         role: "user",
         content: `You are going to analyze this market query: "${query}"
-
 Return ONLY a JSON object with no other text or explanation. The JSON must follow this exact structure:
 {
   "query_intent": {
@@ -76,31 +75,72 @@ Return ONLY a JSON object with no other text or explanation. The JSON must follo
     "prioritize_strength": boolean
   }
 }
+                 QUERY TYPES TO UNDERSTAND:
+                 1. Information Queries
+                    - General information about stocks, patterns, or market conditions
+                    - Historical context or background
+                    - Example: "Tell me about ACME Inc" or "What's happening with energy stocks"
+                 
+                 2. Pattern Analysis
+                    - Technical patterns in market behavior
+                    - Trend identification
+                    - Example: "Show patterns in tech when Fed was raising" or "What patterns are formed in Oil and XLY during a war"
+                 
+                 3. Trading Signals
+                    - Actionable trading opportunities
+                    - Current/Live patterns requiring immediate attention
+                    - Example: "Any trading signals in SPY right now" or "Generate a trade for me with a 2% target gain"
+                 
+                 4. Market Insights
+                    - Deeper analysis of market conditions
+                    - Pattern strength and reliability
+                    - Example: "What's the market showing for QQQ" or "Strong patterns today"
 
-Consider these query types when analyzing:
-1. Information Queries: General info about stocks, patterns, market conditions
-2. Pattern Analysis: Technical patterns, trend identification
-3. Trading Signals: Actionable trading opportunities, live patterns
-4. Market Insights: Deeper analysis of conditions and strength
+                 DATABASE FIELDS:
+                 - ticker: Stock symbol
+                 - company_name: Company name
+                 - live_status: Current validity ('Yes'/'No')
+                 - pattern_keywords: Pattern identification terms
+                 - pattern_description: Detailed pattern explanation
+                 - pattern_strength: Confidence metric (-1 to 1)
 
-The available database fields are:
-- ticker: Stock symbol
-- company_name: Company name
-- live_status: Current validity ('Yes'/'No')
-- pattern_keywords: Pattern identification terms
-- pattern_description: Detailed pattern explanation
-- pattern_strength: Confidence metric (-1 to 1)
+                 QUERY UNDERSTANDING REQUIREMENTS:
+                 1. Identify primary intent (information/pattern/signal/insight)
+                 2. Determine if live/current data is crucial
+                 3. Extract relevant search terms
+                 4. Understand strength/confidence requirements
+                 5. Recognize time sensitivity
+                 6. Identify specific instruments or sectors
+                 
+                 Based on this understanding, analyze this market query: "${query}"
+                 Return a JSON search strategy with:
+                 {
+                   "query_intent": {
+                     "primary_type": "information|pattern|signal|insight",
+                     "time_sensitive": boolean,
+                     "requires_live": boolean
+                   },
+                   "search_parameters": {
+                     "text_terms": ["term1", "term2", ...],
+                     "fields_to_check": ["field1", "field2", ...],
+                     "strength_requirements": {
+                       "min": number or null,
+                       "max": number or null,
+                       "important": boolean
+                     }
+                   },
+                   "result_preferences": {
+                     "sort_field": string or null,
+                     "sort_direction": "asc|desc",
+                     "prioritize_live": boolean,
+                     "prioritize_strength": boolean
+                   }
+                 }`
+      }]
+    });
 
-Return ONLY the JSON response, no extra text.`
-  }]
-});
-    console.log('Raw Claude response:', JSON.stringify(completion.content, null, 2));
-try {
     const searchStrategy = JSON.parse(completion.content);
-} catch (error) {
-    console.error('Failed to parse:', completion.content);
-    throw error;
-}
+    console.log('Search strategy:', searchStrategy);
 
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
