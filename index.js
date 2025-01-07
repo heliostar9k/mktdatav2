@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const OpenAI = require('openai');
+const { Anthropic } = require('@anthropic-ai/sdk');
 const axios = require('axios');
 
 const app = express();
@@ -17,9 +17,9 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// Initialize Anthropic (Claude)
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
 });
 
 // Serve the HTML page at root
@@ -45,9 +45,10 @@ app.post('/api/search', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // Get query intent and search strategy from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    // Get query intent and search strategy from Claude
+    const completion = await anthropic.messages.create({
+      model: "claude-3-opus-20240229",
+      max_tokens: 1000,
       messages: [{
         role: "system",
         content: `You are an advanced market intelligence system that understands various types of market-related queries.
@@ -117,7 +118,7 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    const searchStrategy = JSON.parse(completion.choices[0].message.content);
+    const searchStrategy = JSON.parse(completion.content[0].text);
     console.log('Search strategy:', searchStrategy);
 
     // Build base query
@@ -211,7 +212,7 @@ app.post('/api/search', async (req, res) => {
           }],
           temperature: 0.2,
           top_p: 0.9,
-          max_tokens: 500,  // Increased for more detailed responses
+          max_tokens: 500,
           search_domain_filter: ["perplexity.ai"],
           return_images: false,
           return_related_questions: false,
