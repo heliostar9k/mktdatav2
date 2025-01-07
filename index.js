@@ -47,7 +47,7 @@ app.post('/api/search', async (req, res) => {
 
     // Get query intent and search strategy from Claude
     const completion = await anthropic.messages.create({
-      model: "claude-3-opus-20240229",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 1000,
       messages: [{
         role: "system",
