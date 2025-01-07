@@ -1,1 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Market Data API - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full p-6">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h1 class="text-2xl font-bold text-center mb-8">Market Data API</h1>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
 
+                <button type="submit" 
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an account? 
+                    <button onclick="toggleForm()" class="text-indigo-600 hover:text-indigo-500">
+                        Register
+                    </button>
+                </p>
+            </div>
+
+            <!-- Registration Form (hidden by default) -->
+            <form id="registerForm" class="hidden space-y-4 mt-8">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="regEmail" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="regPassword" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                    Register
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/login.js"></script>
+</body>
+</html>
