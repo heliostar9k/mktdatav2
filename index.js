@@ -40,6 +40,7 @@ app.get('/docs', (req, res) => {
 app.post('/api/search', async (req, res) => {
   try {
     const { query } = req.body;
+    console.log('Received query:', query);
 
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
@@ -91,7 +92,7 @@ app.post('/api/search', async (req, res) => {
                  6. Identify specific instruments or sectors
                  
                  Based on this understanding, analyze this market query: "${query}"
-                 Return a JSON search strategy with:
+                 Return only a valid JSON object in this exact format:
                  {
                    "query_intent": {
                      "primary_type": "information|pattern|signal|insight",
@@ -117,15 +118,23 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    console.log('Raw Claude response:', JSON.stringify(completion.content, null, 2));
-try {
-    const searchStrategy = JSON.parse(completion.content);
-} catch (error) {
-    console.error('Failed to parse:', completion.content);
-    throw error;
-}
-    console.log('Search strategy:', searchStrategy);
+    // Extract and parse the JSON response
+    const response = completion.content;
+    let searchStrategy;
+    try {
+        // Extract just the JSON part using regex
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('No JSON found in response');
+        }
+        searchStrategy = JSON.parse(jsonMatch[0]);
+        console.log('Successfully parsed search strategy');
+    } catch (error) {
+        console.error('Parse error:', error);
+        throw new Error('Failed to parse Claude response');
+    }
 
+    console.log('Building Supabase query');
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
 
@@ -161,12 +170,15 @@ try {
     }
 
     // Execute query
+    console.log('Executing Supabase query');
     let { data: results, error } = await dbQuery;
 
     if (error) {
-      console.error('Query error:', error);
+      console.error('Supabase query error:', error);
       throw error;
     }
+
+    console.log(`Found ${results ? results.length : 0} results`);
 
     // Post-process results
     if (results && results.length > 0) {
@@ -203,6 +215,7 @@ try {
        searchStrategy.query_intent.primary_type === 'insight') &&
       searchStrategy.query_intent.primary_type !== 'signal'
     ) {
+      console.log('Requesting Perplexity insights');
       try {
         const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
           model: "llama-3.1-sonar-small-128k-online",
@@ -230,6 +243,7 @@ try {
         });
         
         additionalInsights = perplexityResponse.data.choices[0].message.content;
+        console.log('Received Perplexity insights');
       } catch (error) {
         console.error('Perplexity API error:', error);
       }
