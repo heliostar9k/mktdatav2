@@ -117,7 +117,7 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    const searchStrategy = JSON.parse(completion.content[0].text);
+    const searchStrategy = JSON.parse(completion.content);
     console.log('Search strategy:', searchStrategy);
 
     // Build base query
