@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const { Anthropic } = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
 const axios = require('axios');
 
 const app = express();
@@ -17,9 +17,9 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Initialize Anthropic (Claude)
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Serve the HTML page at root
@@ -45,12 +45,11 @@ app.post('/api/search', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // Get query intent and search strategy from Claude
-    const completion = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1000,
+    // Get query intent and search strategy from OpenAI
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       messages: [{
-        role: "user",
+        role: "system",
         content: `You are an advanced market intelligence system that understands various types of market-related queries.
 
                  QUERY TYPES TO UNDERSTAND:
@@ -88,9 +87,10 @@ app.post('/api/search', async (req, res) => {
                  3. Extract relevant search terms
                  4. Understand strength/confidence requirements
                  5. Recognize time sensitivity
-                 6. Identify specific instruments or sectors
-                 
-                 Based on this understanding, analyze this market query: "${query}"
+                 6. Identify specific instruments or sectors`
+      }, {
+        role: "user",
+        content: `Analyze this market query: "${query}"
                  Return a JSON search strategy with:
                  {
                    "query_intent": {
@@ -117,7 +117,7 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    const searchStrategy = JSON.parse(completion.content[0].text);
+    const searchStrategy = JSON.parse(completion.choices[0].message.content);
     console.log('Search strategy:', searchStrategy);
 
     // Build base query
@@ -211,7 +211,7 @@ app.post('/api/search', async (req, res) => {
           }],
           temperature: 0.2,
           top_p: 0.9,
-          max_tokens: 500,
+          max_tokens: 500,  // Increased for more detailed responses
           search_domain_filter: ["perplexity.ai"],
           return_images: false,
           return_related_questions: false,
