@@ -119,21 +119,24 @@ app.post('/api/search', async (req, res) => {
     });
 
     // Extract and parse the JSON response
-    const response = completion.content;
-    let searchStrategy;
     try {
-        // Extract just the JSON part using regex
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('No JSON found in response');
-        }
-        searchStrategy = JSON.parse(jsonMatch[0]);
-        console.log('Successfully parsed search strategy');
+        console.log('Claude raw response:', completion.content);
+        const searchStrategy = JSON.parse(completion.content);
+        console.log('Successfully parsed search strategy:', searchStrategy);
     } catch (error) {
-        console.error('Parse error:', error);
-        throw new Error('Failed to parse Claude response');
+        console.error('Parse error, trying fallback parsing');
+        try {
+            // Fallback: Try to find the first occurrence of {
+            const start = completion.content.indexOf('{');
+            const end = completion.content.lastIndexOf('}') + 1;
+            const jsonStr = completion.content.slice(start, end);
+            searchStrategy = JSON.parse(jsonStr);
+            console.log('Successfully parsed with fallback');
+        } catch (fallbackError) {
+            console.error('All parsing attempts failed');
+            throw new Error('Failed to parse Claude response');
+        }
     }
-
     console.log('Building Supabase query');
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
