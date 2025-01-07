@@ -50,7 +50,7 @@ app.post('/api/search', async (req, res) => {
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 1000,
       messages: [{
-        role: "system",
+        role: "user",
         content: `You are an advanced market intelligence system that understands various types of market-related queries.
 
                  QUERY TYPES TO UNDERSTAND:
@@ -88,10 +88,9 @@ app.post('/api/search', async (req, res) => {
                  3. Extract relevant search terms
                  4. Understand strength/confidence requirements
                  5. Recognize time sensitivity
-                 6. Identify specific instruments or sectors`
-      }, {
-        role: "user",
-        content: `Analyze this market query: "${query}"
+                 6. Identify specific instruments or sectors
+                 
+                 Based on this understanding, analyze this market query: "${query}"
                  Return a JSON search strategy with:
                  {
                    "query_intent": {
