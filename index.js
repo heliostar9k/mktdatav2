@@ -142,6 +142,7 @@ app.post('/api/search', async (req, res) => {
             throw new Error('Missing required fields in search strategy');
         }
         
+        // Ensure search_parameters.text_terms is an array
         if (!Array.isArray(searchStrategy.search_parameters.text_terms)) {
             searchStrategy.search_parameters.text_terms = [];
         }
@@ -157,7 +158,7 @@ app.post('/api/search', async (req, res) => {
     let dbQuery = supabase.from('market_data').select('*');
 
     // Apply text search across all relevant fields for broader matching
-    if (searchStrategy.search_parameters.text_terms.length > 0) {
+    if (searchStrategy.search_parameters && Array.isArray(searchStrategy.search_parameters.text_terms) && searchStrategy.search_parameters.text_terms.length > 0) {
       const searchFields = ['ticker', 'company_name', 'pattern_keywords', 'pattern_description'];
       
       const searchConditions = searchFields.flatMap(field => 
