@@ -139,8 +139,13 @@ Return ONLY a JSON object with no other text or explanation. The JSON must follo
       }]
     });
 
+    console.log('Raw Claude response:', JSON.stringify(completion.content, null, 2));
+try {
     const searchStrategy = JSON.parse(completion.content);
-    console.log('Search strategy:', searchStrategy);
+} catch (error) {
+    console.error('Failed to parse:', completion.content);
+    throw error;
+}
 
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
