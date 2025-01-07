@@ -50,6 +50,7 @@ app.post('/api/search', async (req, res) => {
     const completion = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 1000,
+      temperature: 0,
       messages: [{
         role: "user",
         content: `You are an advanced market intelligence system that understands various types of market-related queries.
@@ -92,7 +93,7 @@ app.post('/api/search', async (req, res) => {
                  6. Identify specific instruments or sectors
                  
                  Based on this understanding, analyze this market query: "${query}"
-                 Return only a valid JSON object in this exact format:
+                 Return only a valid JSON string in this exact format without any explanations or additional text:
                  {
                    "query_intent": {
                      "primary_type": "information|pattern|signal|insight",
@@ -100,8 +101,8 @@ app.post('/api/search', async (req, res) => {
                      "requires_live": boolean
                    },
                    "search_parameters": {
-                     "text_terms": ["term1", "term2", ...],
-                     "fields_to_check": ["field1", "field2", ...],
+                     "text_terms": ["term1", "term2"],
+                     "fields_to_check": ["field1", "field2"],
                      "strength_requirements": {
                        "min": number or null,
                        "max": number or null,
@@ -118,34 +119,39 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    // Replace the current parsing section with this simpler version:
+    // Extract and parse JSON from Claude's response
     let searchStrategy;
     try {
-        console.log('Claude raw response:', completion.content);
+        const text = completion.content;
+        const startIndex = text.indexOf('{');
+        const endIndex = text.lastIndexOf('}') + 1;
         
-        if (typeof completion.content === 'object') {
-            // If Claude returns a parsed object
-            searchStrategy = completion.content;
-        } else {
-            // If Claude returns a string containing a JSON object
-            const text = completion.content;
-            const firstBrace = text.indexOf('{');
-            const lastBrace = text.lastIndexOf('}');
-            
-            if (firstBrace === -1 || lastBrace === -1) {
-                throw new Error('No JSON object found in response');
-            }
-            
-            // Extract just the JSON part
-            const jsonText = text.substring(firstBrace, lastBrace + 1);
-            searchStrategy = JSON.parse(jsonText);
+        if (startIndex === -1 || endIndex === 0) {
+            throw new Error('No JSON found in response');
         }
         
-        console.log('Parsed search strategy:', searchStrategy);
+        const jsonStr = text.substring(startIndex, endIndex)
+            .replace(/\n/g, '')
+            .replace(/\\n/g, '')
+            .replace(/\s+/g, ' ');
+        
+        searchStrategy = JSON.parse(jsonStr);
+        
+        // Validate required fields
+        if (!searchStrategy.query_intent || !searchStrategy.search_parameters || !searchStrategy.result_preferences) {
+            throw new Error('Missing required fields in search strategy');
+        }
+        
+        if (!Array.isArray(searchStrategy.search_parameters.text_terms)) {
+            searchStrategy.search_parameters.text_terms = [];
+        }
+        
+        console.log('Search strategy:', JSON.stringify(searchStrategy, null, 2));
     } catch (error) {
-        console.error('Parse error:', error, '\nResponse:', completion.content);
-        throw new Error('Failed to parse Claude response: ' + error.message);
+        console.error('Parse error:', error, '\nRaw response:', completion.content);
+        throw new Error('Failed to parse response: ' + error.message);
     }
+
     console.log('Building Supabase query');
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
