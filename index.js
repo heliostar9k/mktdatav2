@@ -117,7 +117,13 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
+    console.log('Raw Claude response:', JSON.stringify(completion.content, null, 2));
+try {
     const searchStrategy = JSON.parse(completion.content);
+} catch (error) {
+    console.error('Failed to parse:', completion.content);
+    throw error;
+}
     console.log('Search strategy:', searchStrategy);
 
     // Build base query
