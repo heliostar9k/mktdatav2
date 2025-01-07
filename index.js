@@ -52,7 +52,7 @@ app.post('/api/search', async (req, res) => {
       max_tokens: 1000,
       temperature: 0,
       messages: [{
-        role: 'system',
+        role: "assistant",
         content: `You are an advanced market intelligence system that understands various types of market-related queries.
 
                  QUERY TYPES TO UNDERSTAND:
