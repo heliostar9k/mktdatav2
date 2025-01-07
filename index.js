@@ -118,25 +118,36 @@ app.post('/api/search', async (req, res) => {
       }]
     });
 
-    // Extract and parse the JSON response
+    // Parse Claude's response
+    console.log('Claude raw response:', completion.content);
+    let searchStrategy;
     try {
-        console.log('Claude raw response:', completion.content);
-        const searchStrategy = JSON.parse(completion.content);
-        console.log('Successfully parsed search strategy:', searchStrategy);
-    } catch (error) {
-        console.error('Parse error, trying fallback parsing');
-        try {
-            // Fallback: Try to find the first occurrence of {
-            const start = completion.content.indexOf('{');
-            const end = completion.content.lastIndexOf('}') + 1;
-            const jsonStr = completion.content.slice(start, end);
-            searchStrategy = JSON.parse(jsonStr);
-            console.log('Successfully parsed with fallback');
-        } catch (fallbackError) {
-            console.error('All parsing attempts failed');
-            throw new Error('Failed to parse Claude response');
+        // Clean up the response: remove \n, concatenation symbols, and extra whitespace
+        const cleanedResponse = completion.content
+            .replace(/\n/g, '')         // Remove newlines
+            .replace(/\s+/g, ' ')       // Normalize whitespace
+            .replace(/'\s*\+\s*'/g, '') // Remove string concatenation
+            .replace(/\\n/g, '')        // Remove escaped newlines
+            .trim();                    // Remove leading/trailing whitespace
+
+        // Find the JSON object
+        const jsonStart = cleanedResponse.indexOf('{');
+        const jsonEnd = cleanedResponse.lastIndexOf('}') + 1;
+        if (jsonStart === -1 || jsonEnd === 0) {
+            throw new Error('No JSON object found in response');
         }
+
+        const jsonStr = cleanedResponse.slice(jsonStart, jsonEnd);
+        console.log('Cleaned JSON string:', jsonStr);
+        
+        searchStrategy = JSON.parse(jsonStr);
+        console.log('Successfully parsed strategy:', searchStrategy);
+
+    } catch (error) {
+        console.error('Parse error:', error);
+        throw new Error('Failed to parse Claude response: ' + error.message);
     }
+
     console.log('Building Supabase query');
     // Build base query
     let dbQuery = supabase.from('market_data').select('*');
