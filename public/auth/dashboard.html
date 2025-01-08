@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Market Data API - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-xl font-bold">Market Data API</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <button id="logoutBtn" class="text-gray-500 hover:text-gray-700">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Welcome Section -->
+            <div class="bg-white shadow rounded-lg p-6 mb-6">
+                <h2 class="text-lg font-medium mb-2">Welcome</h2>
+                <p id="userEmail" class="text-sm text-gray-600">Loading user info...</p>
+            </div>
+
+            <!-- API Key Section -->
+            <div class="bg-white shadow rounded-lg p-6 mb-6">
+                <h2 class="text-lg font-medium mb-4">Your API Key</h2>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <input type="password" 
+                               id="apiKey" 
+                               readonly
+                               class="flex-1 p-2 border rounded bg-gray-50"
+                               value="Loading...">
+                        <button onclick="toggleApiKeyVisibility()" 
+                                class="px-3 py-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
+                            Show/Hide
+                        </button>
+                        <button onclick="copyApiKey()" 
+                                class="px-3 py-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
+                            Copy
+                        </button>
+                    </div>
+                    <button onclick="generateNewKey()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                        Generate New Key
+                    </button>
+                    <p class="text-sm text-gray-500">
+                        Note: Generating a new key will invalidate your old key.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Example Usage Section -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-lg font-medium mb-4">API Usage Examples</h2>
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded p-4">
+                        <h3 class="font-medium mb-2">cURL</h3>
+                        <pre class="bg-gray-100 p-3 rounded overflow-x-auto text-sm">
+curl -X POST https://mktdatav2-production.up.railway.app/api/search \
+-H "Content-Type: application/json" \
+-H "x-api-key: YOUR_API_KEY" \
+-d '{"query": "show me live nasdaq patterns"}'</pre>
+                    </div>
+
+                    <div class="bg-gray-50 rounded p-4">
+                        <h3 class="font-medium mb-2">JavaScript</h3>
+                        <pre class="bg-gray-100 p-3 rounded overflow-x-auto text-sm">
+fetch('https://mktdatav2-production.up.railway.app/api/search', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+        query: 'show me live nasdaq patterns'
+    })
+});</pre>
+                    </div>
+
+                    <div class="text-center mt-6">
+                        <a href="/api/docs.html" 
+                           class="text-blue-600 hover:text-blue-800">
+                            View Full API Documentation →
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Messages -->
+    <div id="toast" class="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg hidden"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase client
+        const supabase = supabase.createClient(
+            'https://mjpdiadvjjpjfrlkyhez.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qcGRpYWR2ampwamZybGt5aGV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwOTMwNjAsImV4cCI6MjA1MTY2OTA2MH0.PSUC_M0sc19QuIAU885xHwlzD-g-YsIzAhPuNFQPfmg'
+        );
+
+        // Check auth state and load user data
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            
+            if (!user || error) {
+                window.location.href = '/auth/login.html';
+                return;
+            }
+
+            // Display user email
+            document.getElementById('userEmail').textContent = user.email;
+
+            // Load API key
+            await loadApiKey(user.id);
+        });
+
+        // Load user's API key
+        async function loadApiKey(userId) {
+            try {
+                const { data, error } = await supabase
+                    .from('api_keys')
+                    .select('key')
+                    .eq('user_id', userId)
+                    .single();
+
+                const apiKeyInput = document.getElementById('apiKey');
+                
+                if (error) throw error;
+                
+                if (data?.key) {
+                    apiKeyInput.value = data.key;
+                } else {
+                    apiKeyInput.value = 'No API key generated';
+                }
+            } catch (error) {
+                console.error('Error loading API key:', error);
+                showToast('Error loading API key', 'error');
+            }
+        }
+
+        // Generate new API key
+        async function generateNewKey() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error('Not authenticated');
+
+                const apiKey = 'mk_' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('')
+                    .substr(0, 32);
+
+                const { error } = await supabase
+                    .from('api_keys')
+                    .upsert({ 
+                        user_id: user.id,
+                        key: apiKey,
+                        created_at: new Date().toISOString(),
+                        active: true
+                    }, {
+                        onConflict: 'user_id'
+                    });
+
+                if (error) throw error;
+
+                document.getElementById('apiKey').value = apiKey;
+                showToast('New API key generated successfully', 'success');
+            } catch (error) {
+                console.error('Error generating API key:', error);
+                showToast('Error generating new API key', 'error');
+            }
+        }
+
+        // Toggle API key visibility
+        function toggleApiKeyVisibility() {
+            const apiKeyInput = document.getElementById('apiKey');
+            apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+        }
+
+        // Copy API key to clipboard
+        function copyApiKey() {
+            const apiKeyInput = document.getElementById('apiKey');
+            navigator.clipboard.writeText(apiKeyInput.value)
+                .then(() => showToast('API key copied to clipboard', 'success'))
+                .catch(() => showToast('Failed to copy API key', 'error'));
+        }
+
+        // Show toast message
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg ${
+                type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            } text-white`;
+            
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Handle logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html>
