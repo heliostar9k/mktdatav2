@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Market Data API - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full p-6">
+        <!-- Logo/Home Link -->
+        <div class="text-center mb-8">
+            <a href="/" class="inline-block">
+                <h1 class="text-2xl font-bold">Market Data API</h1>
+            </a>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <!-- Form Toggle Buttons -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <button onclick="toggleForm('login')" 
+                        id="loginTab"
+                        class="flex-1 py-2 text-center font-medium border-b-2 border-blue-500">
+                    Login
+                </button>
+                <button onclick="toggleForm('register')" 
+                        id="registerTab"
+                        class="flex-1 py-2 text-center font-medium text-gray-500 border-b-2 border-transparent">
+                    Register
+                </button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" 
+                           id="loginEmail" 
+                           required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" 
+                           id="loginPassword" 
+                           required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <button type="submit" 
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Registration Form -->
+            <form id="registerForm" class="hidden space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" 
+                           id="registerEmail" 
+                           required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" 
+                           id="registerPassword" 
+                           required
+                           minlength="6"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input type="password" 
+                           id="confirmPassword" 
+                           required
+                           minlength="6"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Error Alert -->
+            <div id="errorAlert" class="hidden mt-4 bg-red-50 text-red-600 p-3 rounded-md text-sm"></div>
+            
+            <!-- Success Alert -->
+            <div id="successAlert" class="hidden mt-4 bg-green-50 text-green-600 p-3 rounded-md text-sm"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase client
+        const supabase = supabase.createClient(
+            'https://mjpdiadvjjpjfrlkyhez.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qcGRpYWR2ampwamZybGt5aGV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwOTMwNjAsImV4cCI6MjA1MTY2OTA2MH0.PSUC_M0sc19QuIAU885xHwlzD-g-YsIzAhPuNFQPfmg'
+        );
+
+        // Check if user is already logged in
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (user && !error) {
+                window.location.href = '/auth/dashboard.html';
+            }
+        });
+
+        // Toggle between login and register forms
+        function toggleForm(form) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            
+            if (form === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginTab.classList.add('border-blue-500', 'text-gray-900');
+                loginTab.classList.remove('text-gray-500', 'border-transparent');
+                registerTab.classList.remove('border-blue-500', 'text-gray-900');
+                registerTab.classList.add('text-gray-500', 'border-transparent');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                registerTab.classList.add('border-blue-500', 'text-gray-900');
+                registerTab.classList.remove('text-gray-500', 'border-transparent');
+                loginTab.classList.remove('border-blue-500', 'text-gray-900');
+                loginTab.classList.add('text-gray-500', 'border-transparent');
+            }
+
+            // Clear any existing alerts
+            document.getElementById('errorAlert').classList.add('hidden');
+            document.getElementById('successAlert').classList.add('hidden');
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                window.location.href = '/auth/dashboard.html';
+            } catch (error) {
+                const errorAlert = document.getElementById('errorAlert');
+                errorAlert.textContent = error.message;
+                errorAlert.classList.remove('hidden');
+            }
+        });
+
+        // Handle registration form submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Clear previous alerts
+            document.getElementById('errorAlert').classList.add('hidden');
+            document.getElementById('successAlert').classList.add('hidden');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                const errorAlert = document.getElementById('errorAlert');
+                errorAlert.textContent = 'Passwords do not match';
+                errorAlert.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                // Show success message
+                const successAlert = document.getElementById('successAlert');
+                successAlert.textContent = 'Registration successful! Please check your email for verification.';
+                successAlert.classList.remove('hidden');
+                
+                // Clear form
+                document.getElementById('registerForm').reset();
+                
+                // Switch back to login form after a delay
+                setTimeout(() => {
+                    toggleForm('login');
+                }, 3000);
+                
+            } catch (error) {
+                const errorAlert = document.getElementById('errorAlert');
+                errorAlert.textContent = error.message;
+                errorAlert.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
