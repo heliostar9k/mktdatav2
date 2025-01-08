@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Market Data API Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm mb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="text-xl font-bold">Market Data API</a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <a href="/auth/dashboard.html" class="text-gray-500 hover:text-gray-700">
+                        Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold mb-6">API Documentation</h1>
+            
+            <!-- Authentication -->
+            <div class="mb-12">
+                <h2 class="text-xl font-semibold mb-4">Authentication</h2>
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <p class="mb-4">All API requests require an API key to be included in the header:</p>
+                    <pre class="bg-gray-100 p-4 rounded overflow-x-auto">
+{
+    "x-api-key": "your_api_key"
+}</pre>
+                    <p class="mt-4 text-sm text-gray-600">
+                        Get your API key from the <a href="/auth/dashboard.html" class="text-blue-600 hover:text-blue-800">dashboard</a>
+                        after creating an account.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Endpoints -->
+            <div class="mb-12">
+                <h2 class="text-xl font-semibold mb-4">Search Endpoint</h2>
+                <div class="space-y-6">
+                    <!-- Endpoint Details -->
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium">POST</span>
+                            <code class="text-blue-600">/api/search</code>
+                        </div>
+                        <p class="mb-4">Search for market patterns and insights using natural language queries.</p>
+                        
+                        <!-- Request Format -->
+                        <h3 class="font-medium mb-2">Request Format</h3>
+                        <pre class="bg-gray-100 p-4 rounded mb-4 overflow-x-auto">
+{
+    "query": "your search query here"
+}</pre>
+
+                        <!-- Response Format -->
+                        <h3 class="font-medium mb-2">Response Format</h3>
+                        <pre class="bg-gray-100 p-4 rounded mb-4 overflow-x-auto">
+{
+    "results": [
+        {
+            "ticker": "string",
+            "company_name": "string",
+            "live_status": "Yes/No",
+            "pattern_keywords": "string",
+            "pattern_description": "string",
+            "pattern_strength": number
+        }
+    ],
+    "analysis": {
+        "understanding": {
+            "query_type": "string",
+            "time_sensitive": boolean,
+            "requires_live_data": boolean
+        },
+        "result_count": number
+    },
+    "additional_insights": "string (when applicable)"
+}</pre>
+                    </div>
+
+                    <!-- Query Types -->
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <h3 class="font-medium mb-4">Query Types</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium text-gray-700">Pattern Search</h4>
+                                <p class="text-gray-600 mb-2">Search for specific market patterns</p>
+                                <code class="bg-gray-100 px-2 py-1 rounded">"show me live nasdaq patterns"</code>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-700">Stock Analysis</h4>
+                                <p class="text-gray-600 mb-2">Get insights about specific stocks</p>
+                                <code class="bg-gray-100 px-2 py-1 rounded">"tell me about AMGN patterns"</code>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-700">Signal Detection</h4>
+                                <p class="text-gray-600 mb-2">Find active trading signals</p>
+                                <code class="bg-gray-100 px-2 py-1 rounded">"show me strong bullish signals"</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example Usage -->
+            <div class="mb-12">
+                <h2 class="text-xl font-semibold mb-4">Example Usage</h2>
+                
+                <!-- cURL -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">cURL</h3>
+                    <pre class="bg-gray-100 p-4 rounded overflow-x-auto">
+curl -X POST https://mktdatav2-production.up.railway.app/api/search \
+-H "Content-Type: application/json" \
+-H "x-api-key: your_api_key" \
+-d '{
+    "query": "show me live nasdaq patterns"
+}'</pre>
+                </div>
+
+                <!-- Python -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">Python</h3>
+                    <pre class="bg-gray-100 p-4 rounded overflow-x-auto">
+import requests
+
+response = requests.post(
+    'https://mktdatav2-production.up.railway.app/api/search',
+    headers={
+        'Content-Type': 'application/json',
+        'x-api-key': 'your_api_key'
+    },
+    json={
+        'query': 'show me live nasdaq patterns'
+    }
+)
+
+data = response.json()</pre>
+                </div>
+
+                <!-- JavaScript -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">JavaScript</h3>
+                    <pre class="bg-gray-100 p-4 rounded overflow-x-auto">
+fetch('https://mktdatav2-production.up.railway.app/api/search', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'your_api_key'
+    },
+    body: JSON.stringify({
+        query: 'show me live nasdaq patterns'
+    })
+})
+.then(response => response.json())
+.then(data => console.log(data));</pre>
+                </div>
+            </div>
+
+            <!-- Response Codes -->
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Response Codes</h2>
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <ul class="space-y-2">
+                        <li class="flex items-center gap-2">
+                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">200</span>
+                            <span>Successful request</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">400</span>
+                            <span>Bad request (missing or invalid parameters)</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">401</span>
+                            <span>Unauthorized (missing or invalid API key)</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">429</span>
+                            <span>Too many requests</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">500</span>
+                            <span>Internal server error</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 py-8 bg-white border-t">
+        <div class="max-w-4xl mx-auto px-4 text-center text-gray-600">
+            <p>Need help? Contact support or visit the <a href="/auth/dashboard.html" class="text-blue-600 hover:text-blue-800">dashboard</a>.</p>
+        </div>
+    </footer>
+</body>
+</html>
