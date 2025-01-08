@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Market Data API</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen p-6">
+        <nav class="mb-8">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between items-center py-4">
+                    <h1 class="text-xl font-bold">Market Data API</h1>
+                    <div class="hidden" id="navButtons">
+                        <button id="dashboardBtn" class="text-blue-600 hover:text-blue-800 mx-4">Dashboard</button>
+                        <button id="logoutBtn" class="text-gray-600 hover:text-gray-800">Logout</button>
+                    </div>
+                    <div id="loginBtn" class="hidden">
+                        <a href="/auth/login.html" class="text-blue-600 hover:text-blue-800">Login</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto">
+            <!-- Hero Section -->
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold mb-4">Market Pattern Intelligence API</h2>
+                <p class="text-xl text-gray-600">Access market patterns, insights, and signals through our natural language API</p>
+            </div>
+
+            <!-- Example Section -->
+            <div class="bg-white rounded-lg shadow-lg p-8 mb-8">
+                <h3 class="text-2xl font-semibold mb-4">Try an Example Query</h3>
+                <div class="mb-6">
+                    <input type="text" 
+                           id="queryInput" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Type 'show me live nasdaq patterns' or similar..."
+                           readonly>
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="window.location.href='/auth/login.html'" 
+                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                        Get API Access
+                    </button>
+                </div>
+            </div>
+
+            <!-- Features Grid -->
+            <div class="grid md:grid-cols-3 gap-8 mb-12">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Natural Language</h3>
+                    <p class="text-gray-600">Query market patterns using simple English - no complex syntax needed</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Real-time Insights</h3>
+                    <p class="text-gray-600">Get up-to-date market patterns and trading signals</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">AI-Powered</h3>
+                    <p class="text-gray-600">Advanced AI models analyze and enhance pattern recognition</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase client
+        const supabase = supabase.createClient(
+            'https://mjpdiadvjjpjfrlkyhez.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qcGRpYWR2ampwamZybGt5aGV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwOTMwNjAsImV4cCI6MjA1MTY2OTA2MH0.PSUC_M0sc19QuIAU885xHwlzD-g-YsIzAhPuNFQPfmg'
+        );
+
+        // Check auth state on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            
+            if (user) {
+                document.getElementById('navButtons').classList.remove('hidden');
+                document.getElementById('loginBtn').classList.add('hidden');
+            } else {
+                document.getElementById('navButtons').classList.add('hidden');
+                document.getElementById('loginBtn').classList.remove('hidden');
+            }
+        });
+
+        // Event Listeners
+        document.getElementById('dashboardBtn')?.addEventListener('click', () => {
+            window.location.href = '/auth/dashboard.html';
+        });
+
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html>
