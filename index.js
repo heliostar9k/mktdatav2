@@ -22,92 +22,22 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// ===============================
-// Authentication Middleware
-// ===============================
-const authenticateApiKey = async (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (!apiKey) {
-    return res.status(401).json({ error: 'API key is required' });
-  }
-
-  try {
-    const { data: keyData, error: keyError } = await supabase
-      .from('api_keys')
-      .select('user_id')
-      .eq('key', apiKey)
-      .single();
-
-    if (keyError || !keyData) {
-      return res.status(403).json({ error: 'Invalid API key' });
-    }
-
-    req.userId = keyData.user_id;
-    next();
-  } catch (error) {
-    res.status(500).json({ error: 'Authentication error' });
-  }
-};
-
-// ===============================
-// User Routes
-// ===============================
-// Login page
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-// Dashboard page
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
 // Serve the HTML page at root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'API is running' });
+    res.json({ status: 'ok', message: 'API is running' });
 });
 
 // Add docs route
 app.get('/docs', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'docs.html'));
+    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
 });
 
-// API Key Management Routes
-app.post('/api/keys/generate', async (req, res) => {
-  try {
-    const { user } = await supabase.auth.getUser(req.headers.authorization);
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const apiKey = 'mk_' + [...Array(32)].map(() => Math.random().toString(36)[2]).join('');
-    
-    const { error } = await supabase
-      .from('api_keys')
-      .upsert({ 
-        user_id: user.id,
-        key: apiKey,
-        created_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      });
-
-    if (error) throw error;
-    res.json({ key: apiKey });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to generate API key' });
-  }
-});
-
-// ===============================
-// Protected Search API Route
-// ===============================
-app.post('/api/search', authenticateApiKey, async (req, res) => {
+app.post('/api/search', async (req, res) => {
   try {
     const { query } = req.body;
 
@@ -281,7 +211,7 @@ app.post('/api/search', authenticateApiKey, async (req, res) => {
           }],
           temperature: 0.2,
           top_p: 0.9,
-          max_tokens: 500,
+          max_tokens: 500,  // Increased for more detailed responses
           search_domain_filter: ["perplexity.ai"],
           return_images: false,
           return_related_questions: false,
