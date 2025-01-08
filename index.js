@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const OpenAI = require('openai');
 const axios = require('axios');
 
 const app = express();
@@ -17,244 +16,181 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// ===============================
+// Middleware
+// ===============================
+
+// Validate API key middleware
+const validateApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is required' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('user_id, active')
+      .eq('key', apiKey)
+      .single();
+
+    if (error || !data) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    if (!data.active) {
+      return res.status(401).json({ error: 'API key is inactive' });
+    }
+
+    req.userId = data.user_id;
+    next();
+  } catch (error) {
+    console.error('API key validation error:', error);
+    res.status(500).json({ error: 'Authentication error' });
+  }
+};
+
+// Rate limiting middleware
+const rateLimit = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS = 60; // 60 requests per minute
+
+const rateLimiter = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  const now = Date.now();
+  
+  if (rateLimit.has(apiKey)) {
+    const { count, windowStart } = rateLimit.get(apiKey);
+    
+    if (now - windowStart > RATE_LIMIT_WINDOW) {
+      rateLimit.set(apiKey, { count: 1, windowStart: now });
+    } else if (count >= MAX_REQUESTS) {
+      return res.status(429).json({ 
+        error: 'Rate limit exceeded',
+        retryAfter: Math.ceil((windowStart + RATE_LIMIT_WINDOW - now) / 1000)
+      });
+    } else {
+      rateLimit.set(apiKey, { count: count + 1, windowStart });
+    }
+  } else {
+    rateLimit.set(apiKey, { count: 1, windowStart: now });
+  }
+  
+  next();
+};
+
+// ===============================
+// Routes
+// ===============================
+
+// Serve static pages
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve the HTML page at root
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/auth/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'auth', 'login.html'));
+});
+
+app.get('/auth/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'auth', 'dashboard.html'));
+});
+
+// API Documentation
+app.get('/api/docs', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'api', 'docs.html'));
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'API is running' });
+  res.json({ status: 'ok', message: 'API Management Portal is running' });
 });
 
-// Add docs route
-app.get('/docs', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
-});
-
-app.post('/api/search', async (req, res) => {
+// Proxy endpoint to main service
+app.post('/api/search', validateApiKey, rateLimiter, async (req, res) => {
   try {
-    const { query } = req.body;
-
-    if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
-    }
-
-    // Get query intent and search strategy from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{
-        role: "system",
-        content: `You are an advanced market intelligence system that understands various types of market-related queries.
-
-                 QUERY TYPES TO UNDERSTAND:
-                 1. Information Queries
-                    - General information about stocks, patterns, or market conditions
-                    - Historical context or background
-                    - Example: "Tell me about ACME Inc" or "What's happening with energy stocks"
-                 
-                 2. Pattern Analysis
-                    - Technical patterns in market behavior
-                    - Trend identification
-                    - Example: "Show patterns in tech when Fed was raising" or "What patterns are formed in Oil and XLY during a war"
-                 
-                 3. Trading Signals
-                    - Actionable trading opportunities
-                    - Current/Live patterns requiring immediate attention
-                    - Example: "Any trading signals in SPY right now" or "Generate a trade for me with a 2% target gain"
-                 
-                 4. Market Insights
-                    - Deeper analysis of market conditions
-                    - Pattern strength and reliability
-                    - Example: "What's the market showing for QQQ" or "Strong patterns today"
-
-                 DATABASE FIELDS:
-                 - ticker: Stock symbol
-                 - company_name: Company name
-                 - live_status: Current validity ('Yes'/'No')
-                 - pattern_keywords: Pattern identification terms
-                 - pattern_description: Detailed pattern explanation
-                 - pattern_strength: Confidence metric (-1 to 1)
-
-                 QUERY UNDERSTANDING REQUIREMENTS:
-                 1. Identify primary intent (information/pattern/signal/insight)
-                 2. Determine if live/current data is crucial
-                 3. Extract relevant search terms
-                 4. Understand strength/confidence requirements
-                 5. Recognize time sensitivity
-                 6. Identify specific instruments or sectors`
-      }, {
-        role: "user",
-        content: `Analyze this market query: "${query}"
-                 Return a JSON search strategy with:
-                 {
-                   "query_intent": {
-                     "primary_type": "information|pattern|signal|insight",
-                     "time_sensitive": boolean,
-                     "requires_live": boolean
-                   },
-                   "search_parameters": {
-                     "text_terms": ["term1", "term2", ...],
-                     "fields_to_check": ["field1", "field2", ...],
-                     "strength_requirements": {
-                       "min": number or null,
-                       "max": number or null,
-                       "important": boolean
-                     }
-                   },
-                   "result_preferences": {
-                     "sort_field": string or null,
-                     "sort_direction": "asc|desc",
-                     "prioritize_live": boolean,
-                     "prioritize_strength": boolean
-                   }
-                 }`
-      }]
+    // Forward the request to the main service
+    const response = await axios.post('https://mktdata-production.up.railway.app/api/search', req.body, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
 
-    const searchStrategy = JSON.parse(completion.choices[0].message.content);
-    console.log('Search strategy:', searchStrategy);
-
-    // Build base query
-    let dbQuery = supabase.from('market_data').select('*');
-
-    // Apply text search across all relevant fields for broader matching
-    if (searchStrategy.search_parameters.text_terms.length > 0) {
-      const searchFields = ['ticker', 'company_name', 'pattern_keywords', 'pattern_description'];
-      
-      const searchConditions = searchFields.flatMap(field => 
-        searchStrategy.search_parameters.text_terms.map(term => 
-          `${field}.ilike.%${term}%`
-        )
-      );
-      
-      if (searchConditions.length > 0) {
-        dbQuery = dbQuery.or(searchConditions.join(','));
-      }
-
-      // Handle pattern_strength separately
-      if (searchStrategy.search_parameters.strength_requirements.important) {
-        const { min, max } = searchStrategy.search_parameters.strength_requirements;
-        if (min !== null) {
-          dbQuery = dbQuery.gte('pattern_strength', min);
-        }
-        if (max !== null) {
-          dbQuery = dbQuery.lte('pattern_strength', max);
-        }
-      }
-    }
-
-    // Handle live status requirements
-    if (searchStrategy.query_intent.requires_live) {
-      dbQuery = dbQuery.eq('live_status', 'Yes');
-    }
-
-    // Execute query
-    let { data: results, error } = await dbQuery;
-
-    if (error) {
-      console.error('Query error:', error);
-      throw error;
-    }
-
-    // Post-process results
-    if (results && results.length > 0) {
-      // Handle sorting preferences
-      if (searchStrategy.result_preferences.sort_field) {
-        const direction = searchStrategy.result_preferences.sort_direction === 'desc' ? -1 : 1;
-        results = results.sort((a, b) => {
-          const aVal = a[searchStrategy.result_preferences.sort_field];
-          const bVal = b[searchStrategy.result_preferences.sort_field];
-          return (aVal > bVal ? 1 : -1) * direction;
-        });
-      }
-
-      // Prioritize by strength if requested
-      if (searchStrategy.result_preferences.prioritize_strength) {
-        results = results.sort((a, b) => Math.abs(b.pattern_strength) - Math.abs(a.pattern_strength));
-      }
-
-      // Prioritize live patterns if requested
-      if (searchStrategy.result_preferences.prioritize_live) {
-        results = results.sort((a, b) => {
-          if (a.live_status === 'Yes' && b.live_status !== 'Yes') return -1;
-          if (a.live_status !== 'Yes' && b.live_status === 'Yes') return 1;
-          return 0;
-        });
-      }
-    }
-
-    // Get additional insights from Perplexity if needed
-    let additionalInsights = null;
-    if (
-      (results.length === 0 || 
-       searchStrategy.query_intent.primary_type === 'information' ||
-       searchStrategy.query_intent.primary_type === 'insight') &&
-      searchStrategy.query_intent.primary_type !== 'signal'
-    ) {
-      try {
-        const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
-          model: "llama-3.1-sonar-small-128k-online",
-          messages: [{
-            role: "system",
-            content: "You are a financial market analysis expert. Provide comprehensive insights about market patterns, stocks, and trading conditions. Be specific and thorough in your analysis."
-          }, {
-            role: "user",
-            content: `Analyze this market query: ${query}\nContext: ${results.length > 0 ? 
-              `Based on existing patterns: ${results.map(r => r.pattern_description).join('. ')}` : 
-              'No existing patterns found in database'}`
-          }],
-          temperature: 0.2,
-          top_p: 0.9,
-          max_tokens: 500,  // Increased for more detailed responses
-          search_domain_filter: ["perplexity.ai"],
-          return_images: false,
-          return_related_questions: false,
-          search_recency_filter: "month"
-        }, {
-          headers: {
-            'Authorization': `Bearer ${process.env.PPLX_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        additionalInsights = perplexityResponse.data.choices[0].message.content;
-      } catch (error) {
-        console.error('Perplexity API error:', error);
-      }
-    }
-
-    // Return results with complete analysis and insights
-    res.json({
-      results: results || [],
-      analysis: {
-        understanding: {
-          query_type: searchStrategy.query_intent.primary_type,
-          time_sensitive: searchStrategy.query_intent.time_sensitive,
-          requires_live_data: searchStrategy.query_intent.requires_live
-        },
-        search_strategy: searchStrategy,
-        result_count: results ? results.length : 0
-      },
-      additional_insights: additionalInsights
-    });
-
+    // Return the response from the main service
+    res.json(response.data);
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    console.error('Error proxying to main service:', error);
+    res.status(error.response?.status || 500).json(error.response?.data || { 
+      error: 'Error communicating with main service' 
     });
   }
 });
 
+// API Key Management
+app.post('/api/keys/generate', async (req, res) => {
+  try {
+    const { user } = await supabase.auth.getUser(req.headers.authorization);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const apiKey = 'mk_' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .substr(0, 32);
+    
+    const { error } = await supabase
+      .from('api_keys')
+      .upsert({ 
+        user_id: user.id,
+        key: apiKey,
+        created_at: new Date().toISOString(),
+        active: true
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (error) throw error;
+    res.json({ key: apiKey });
+  } catch (error) {
+    console.error('Error generating API key:', error);
+    res.status(500).json({ error: 'Failed to generate API key' });
+  }
+});
+
+// API Key Status Management
+app.post('/api/keys/deactivate', async (req, res) => {
+  try {
+    const { user } = await supabase.auth.getUser(req.headers.authorization);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { error } = await supabase
+      .from('api_keys')
+      .update({ active: false })
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    res.json({ message: 'API key deactivated successfully' });
+  } catch (error) {
+    console.error('Error deactivating API key:', error);
+    res.status(500).json({ error: 'Failed to deactivate API key' });
+  }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
+});
+
+// Start server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`API Management Portal running on port ${port}`);
 });
